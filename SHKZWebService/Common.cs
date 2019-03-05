@@ -1252,7 +1252,7 @@ namespace SHKZWebService
                                 dtDtl.Rows[i]["TotalQty"] = decimal.Parse(dtDtl.Rows[i]["FQty"].ToString()) + SumPre(dtTemp, "FQty", j);//已入库总数=前入库总数量+本次入库数量
                                 dtMS.ImportRow(dtDtl.Rows[i]);
 
-                                UpdateTotalQty(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dtDtl.Rows[i]["TotalQty"].ToString()));
+                                UpdateTable(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dtDtl.Rows[i]["TotalQty"].ToString()));
                                 break;
                             }
                             else//拆分dtDtl[i]
@@ -1279,7 +1279,7 @@ namespace SHKZWebService
                                 dr["FSEQ"] = dtDtl.Rows[i]["FSEQ"];
 
                                 dtMS.Rows.Add(dr);
-                                UpdateTotalQty(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dr["TotalQty"].ToString()));
+                                UpdateTable(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dr["TotalQty"].ToString()));
                                 dtDtl.Rows[i]["FQty"] = decimal.Parse(dtDtl.Rows[i]["FQty"].ToString()) - decimal.Parse(dtTemp.Rows[j]["FStockQty"].ToString());
                             }
                         }
@@ -1298,7 +1298,7 @@ namespace SHKZWebService
                                 dtDtl.Rows[i]["TotalQty"] = decimal.Parse(dtDtl.Rows[i]["FQty"].ToString()) + TotalQty;
                                 dtMS.ImportRow(dtDtl.Rows[i]);
 
-                                UpdateTotalQty(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dtDtl.Rows[i]["TotalQty"].ToString()));
+                                UpdateTable(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dtDtl.Rows[i]["TotalQty"].ToString()));
                                 break;
                             }
                             else//本次入库数量>第J行剩余未入数量 拆分dtDtl[i]
@@ -1326,7 +1326,7 @@ namespace SHKZWebService
 
                                 dtMS.Rows.Add(dr);
 
-                                UpdateTotalQty(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dr["TotalQty"].ToString()));
+                                UpdateTable(dtMS, "FItem", dtDtl.Rows[i]["FItem"].ToString(), "TotalQty", decimal.Parse(dr["TotalQty"].ToString()));
                                 dtDtl.Rows[i]["FQty"] = decimal.Parse(dtDtl.Rows[i]["FQty"].ToString()) - (decimal.Parse(dtTemp.Rows[j]["FStockQty"].ToString()) - (TotalQty - TotalStock));
                             }
                         }
@@ -3798,15 +3798,15 @@ namespace SHKZWebService
         /// <summary>
         /// 判断DataTable中某一列是否包含某个值
         /// </summary>
-        /// <param name="pDt">DataTable</param>
+        /// <param name="pDataTable">DataTable</param>
         /// <param name="pColumnName">指定列</param>
         /// <param name="pValue">指定值</param>
         /// <returns></returns>
-        private static bool ContainValue(DataTable pDt, string pColumnName, string pValue)
+        private static bool ContainValue(DataTable pDataTable, string pColumnName, string pValue)
         {
-            if (pDt == null || pDt.Rows.Count == 0 || !pDt.Columns.Contains(pColumnName)) return false;
+            if (pDataTable == null || pDataTable.Rows.Count == 0 || !pDataTable.Columns.Contains(pColumnName)) return false;
 
-            for (int i = 0; i < pDt.Rows.Count; i++) if (pDt.Rows[i][pColumnName].ToString() == pValue) return true;
+            for (int i = 0; i < pDataTable.Rows.Count; i++) if (pDataTable.Rows[i][pColumnName].ToString() == pValue) return true;
 
             return false;
         }
@@ -3814,21 +3814,21 @@ namespace SHKZWebService
         /// <summary>
         /// 获取DataTable 前pIndex行的Sum
         /// </summary>
-        /// <param name="pDt">DataTable</param>
+        /// <param name="pDataTable">DataTable</param>
         /// <param name="pColumnName">统计列</param>
         /// <param name="pIndex">序号</param>
         /// <returns></returns>
-        private static decimal SumPre(DataTable pDt, string pColumnName, int pIndex)
+        private static decimal SumPre(DataTable pDataTable, string pColumnName, int pIndex)
         {
-            if (pDt == null || pDt.Rows.Count == 0 || pIndex == 0) return 0;
+            if (pDataTable == null || pDataTable.Rows.Count == 0 || pIndex == 0) return 0;
 
             decimal dSum = 0;
 
-            if (pIndex > pDt.Rows.Count - 1) pIndex = pDt.Rows.Count - 1;
+            if (pIndex > pDataTable.Rows.Count - 1) pIndex = pDataTable.Rows.Count - 1;
 
-            if (!pDt.Columns.Contains(pColumnName)) return 0;
+            if (!pDataTable.Columns.Contains(pColumnName)) return 0;
 
-            for (int i = 0; i < pIndex; i++) dSum += decimal.Parse(pDt.Rows[i][pColumnName].ToString());
+            for (int i = 0; i < pIndex; i++) dSum += decimal.Parse(pDataTable.Rows[i][pColumnName].ToString());
 
             return dSum;
         }
@@ -3836,20 +3836,20 @@ namespace SHKZWebService
         /// <summary>
         /// 获取物料的本次入库总数
         /// </summary>
-        /// <param name="pDt">DataTable</param>
+        /// <param name="pDataTable">DataTable</param>
         /// <param name="pMTL">物料编码</param>
         /// <returns></returns>
-        private static decimal GetTotalQty(DataTable pDt, string pMTL)
+        private static decimal GetTotalQty(DataTable pDataTable, string pMTL)
         {
-            if (pDt == null || pDt.Rows.Count == 0) return 0;
+            if (pDataTable == null || pDataTable.Rows.Count == 0) return 0;
 
             decimal pTotal = 0;
 
-            for (int i = 0; i < pDt.Rows.Count; i++)
+            for (int i = 0; i < pDataTable.Rows.Count; i++)
             {
-                if (pDt.Rows[i]["FItem"].ToString() == pMTL)
+                if (pDataTable.Rows[i]["FItem"].ToString() == pMTL)
                 {
-                    pTotal = decimal.Parse(pDt.Rows[i]["TotalQty"].ToString());
+                    pTotal = decimal.Parse(pDataTable.Rows[i]["TotalQty"].ToString());
                     break;
                 }
             }
@@ -3858,18 +3858,18 @@ namespace SHKZWebService
         }
 
         /// <summary>
-        /// 更新DataTable 本次入库总数量
+        /// 更新DataTable
         /// </summary>
-        /// <param name="pDt">DataTable</param>
+        /// <param name="pDataTable">DataTable</param>
         /// <param name="pColMatch">匹配列</param>
         /// <param name="pValueMatch">匹配值</param>
         /// <param name="pColSet">更新列</param>
         /// <param name="pValueSet">更新值</param>
-        private static void UpdateTotalQty(DataTable pDt, string pColMatch, string pValueMatch, string pColSet, decimal pValueSet)
+        private static void UpdateTable(DataTable pDataTable, string pColMatch, string pValueMatch, string pColSet, decimal pValueSet)
         {
-            if (pDt == null || pDt.Rows.Count == 0) return;
+            if (pDataTable == null || pDataTable.Rows.Count == 0) return;
 
-            for (int i = 0; i < pDt.Rows.Count; i++) if (pDt.Rows[i][pColMatch].ToString() == pValueMatch) pDt.Rows[i][pColSet] = pValueSet;
+            for (int i = 0; i < pDataTable.Rows.Count; i++) if (pDataTable.Rows[i][pColMatch].ToString() == pValueMatch) pDataTable.Rows[i][pColSet] = pValueSet;
         }
         #endregion
 
