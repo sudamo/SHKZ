@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Configuration;
 
-namespace SHKZWebService
+namespace SHKZ
 {
     /// <summary>
     /// 方法
@@ -75,10 +75,13 @@ namespace SHKZWebService
             	WHERE A.FBillNo = '" + pFBillNo + "'";
             else//其他单据
                 strSQL = @"SELECT A.FBillNo,A.FTranType,A.FStatus,AE.FItemID,MTL.FNumber,AE.FQty,ISNULL(INV.FQty,0) FStockQty,ISNULL(AE.FDCStockID,0)FDCStockID,ISNULL(AE.FDCSPID,0) FDCSPID,ISNULL(AE.FSCStockID,0) FSCStockID,ISNULL(AE.FSCSPID,0) FSCSPID,AE.FBatchNo,AE.FSourceBillNo,AE.FSourceInterId,AE.FSourceEntryID,MTL.FBatchManager,A.FROB
+                    ,ISNULL(BE.FInterID,0) FOrderInterID,ISNULL(BE.FEntryID,0) FOrderEntryID,ISNULL(CE.FInterID,0) FSEOutInterID,ISNULL(CE.FEntryID,0) FSEOutEntryID
                 FROM ICStockBill A
                 INNER JOIN ICStockBillEntry AE ON A.FInterID = AE.FInterID
                 INNER JOIN t_ICItem MTL ON AE.FItemID = MTL.FItemID
-                LEFT JOIN ICInventory INV ON AE.FItemID = INV.FItemID AND AE.FBatchNo = INV.FBatchNo AND AE.FDCStockID = INV.FStockID AND AE.FDCSPID = INV.FStockPlaceID
+                LEFT JOIN ICInventory INV ON AE.FItemID = INV.FItemID AND AE.FBatchNo = INV.FBatchNo AND AE.FDCStockID = INV.FStockID AND AE.FDCSPID = INV.FStockPlaceID                
+                LEFT JOIN SEOrderEntry BE ON AE.FOrderInterID = BE.FInterID AND AE.FOrderEntryID = BE.FEntryID
+                LEFT JOIN SEOutStockEntry CE ON AE.FSEOutInterID = CE.FInterID AND AE.FSEOutEntryID = CE.FEntryID
                 WHERE A.FBillNo = '" + pFBillNo + "'";
 
             object obj = SqlOperation(3, strSQL);
@@ -148,7 +151,25 @@ namespace SHKZWebService
                             SqlOperation(0, strSQL);
                         }
                         break;
-                    case 21://销售出库
+                    case 21://销售出库                        
+                        for (int i = 0; i < dt.Rows.Count; i++)
+                        {
+                            //反写库存
+                            if (dt.Rows[i]["FDCSPID"] == null || dt.Rows[i]["FDCSPID"].ToString() == "0")
+                                strSQL = "UPDATE ICInventory SET FQty = FQty - " + dt.Rows[i]["FQty"].ToString() + " WHERE FItemID = " + dt.Rows[i]["FItemID"].ToString() + " AND FBatchNo = '" + dt.Rows[i]["FBatchNo"].ToString() + "' AND FStockID = " + dt.Rows[i]["FDCStockID"].ToString() + ";";
+                            else
+                                strSQL = "UPDATE ICInventory SET FQty = FQty - " + dt.Rows[i]["FQty"].ToString() + " WHERE FItemID = " + dt.Rows[i]["FItemID"].ToString() + " AND FBatchNo = '" + dt.Rows[i]["FBatchNo"].ToString() + "' AND FStockID = " + dt.Rows[i]["FDCStockID"].ToString() + " AND FStockPlaceID = " + dt.Rows[i]["FDCSPID"].ToString() + ";";
+
+                            //反写销售订单
+                            if (int.Parse(dt.Rows[i]["FOrderInterID"].ToString()) != 0)
+                                strSQL += " UPDATE SEOrderEntry SET FStockQty = FStockQty + " + dt.Rows[i]["FQty"].ToString() + ",FAuxStockQty = FAuxStockQty + " + dt.Rows[i]["FQty"].ToString() + ",FAuxCommitQty = FAuxCommitQty + " + dt.Rows[i]["FQty"].ToString() + " WHERE FInterID = " + dt.Rows[i]["FOrderInterID"].ToString() + " AND FEntryID = " + dt.Rows[i]["FOrderEntryID"].ToString() + ";";
+                            //反写发货通知单
+                            if (int.Parse(dt.Rows[i]["FSEOutInterID"].ToString()) != 0)
+                                strSQL += " UPDATE SEOutStockEntry SET FStockQty =  FStockQty + " + dt.Rows[i]["FQty"].ToString() + ",FAuxStockQty = FAuxStockQty + " + dt.Rows[i]["FQty"].ToString() + ",FAuxCommitQty = FAuxCommitQty +" + dt.Rows[i]["FQty"].ToString() + " WHERE FInterID = " + dt.Rows[i]["FSEOutInterID"].ToString() + " AND FEntryID = " + dt.Rows[i]["FSEOutEntryID"].ToString() + ";";
+
+                            SqlOperation(0, strSQL);
+                        }
+                        break;
                     case 29://其他出库
                         for (int i = 0; i < dt.Rows.Count; i++)
                         {

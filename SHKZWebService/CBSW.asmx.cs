@@ -1,7 +1,7 @@
 ﻿using System.Data;
 using System.Web.Services;
 
-namespace SHKZWebService
+namespace SHKZ
 {
     /// <summary>
     /// WebService 的摘要说明
