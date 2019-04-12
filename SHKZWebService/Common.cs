@@ -1465,7 +1465,7 @@ namespace SHKZ
             object obj;
             string strSQL;
             DataTable dtQty, dtCheck;
-            DataTable dtDtl;
+            DataTable dtDtl, dtTemp;
             DataRow dr;
             SqlConnection conn;
 
@@ -1639,6 +1639,17 @@ namespace SHKZ
             }
             #endregion
 
+            #region 去掉重复明细行
+            //DataView dv = new DataView(dtDtl);
+            DataView dv = dtDtl.DefaultView;
+            dtTemp = dv.ToTable(true, new string[] { "FItemID", "FUnitID", "FSCStockID", "FDCSPID", "FBatchNo", "FQty", "FNote", "FCostOBJID", "FSourceBillNo", "FSourceInterId", "FDetailID", "FPPBomID", "FPPBomEntryID", "FStockQty", "FItem" });
+            if (dtTemp.Rows.Count < dtDtl.Rows.Count)
+            {
+                return "no@x005:存在相同行，请联系开发人员。";
+            }
+            dtDtl = dtTemp;
+            #endregion
+
             #region 判断：是否有总领料数量大于计划投料数量和是否有总领料数量大于即时库存数量
 
             //1、是否有总领料数量大于计划投料数量
@@ -1716,9 +1727,8 @@ namespace SHKZ
             }
             #endregion
 
-            conn = new SqlConnection(C_CONNECTIONSTRING);
-
             #region 插入表头
+            conn = new SqlConnection(C_CONNECTIONSTRING);
             try
             {
                 conn.Open();
@@ -1779,11 +1789,6 @@ namespace SHKZ
             cmdD.Parameters.Add("@FSourceBillNo", SqlDbType.VarChar, 50);
             cmdD.Parameters.Add("@FSourceInterId", SqlDbType.Int);
             cmdD.Parameters.Add("@FPPBomEntryID", SqlDbType.Int);
-
-            //去掉重复行
-            //DataView dv = new DataView(dtDtl);
-            DataView dv = dtDtl.DefaultView;
-            dtDtl = dv.ToTable(true, new string[] { "FItemID", "FUnitID", "FSCStockID", "FDCSPID", "FBatchNo", "FQty", "FNote", "FCostOBJID", "FSourceBillNo", "FSourceInterId", "FDetailID", "FPPBomID", "FPPBomEntryID", "FStockQty", "FItem" });
 
             for (int i = 0; i < dtDtl.Rows.Count; i++)
             {
