@@ -1780,6 +1780,11 @@ namespace SHKZ
             cmdD.Parameters.Add("@FSourceInterId", SqlDbType.Int);
             cmdD.Parameters.Add("@FPPBomEntryID", SqlDbType.Int);
 
+            //去掉重复行
+            //DataView dv = new DataView(dtDtl);
+            DataView dv = dtDtl.DefaultView;
+            dtDtl = dv.ToTable(true, new string[] { "FItemID", "FUnitID", "FSCStockID", "FDCSPID", "FBatchNo", "FQty", "FNote", "FCostOBJID", "FSourceBillNo", "FSourceInterId", "FDetailID", "FPPBomID", "FPPBomEntryID", "FStockQty", "FItem" });
+
             for (int i = 0; i < dtDtl.Rows.Count; i++)
             {
                 try
