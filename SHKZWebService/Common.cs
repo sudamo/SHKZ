@@ -976,12 +976,13 @@ namespace SHKZ
                 return "no@x001:" + FBillNo;
 
             //POOrder
-            int POFInterID, POFEntryID;
+            int POFInterID, POFEntryID, FCurrencyID;
             DataTable dtCheck;
 
             //定义表头字段
             string FNote, FPOOrderBillNo;
             int FDeptID, FSupplyID, FSManagerID, FFManagerID, FBillerID, POFInterIDH;
+            decimal dRate = 0;
 
             //定义表体字段
             int FItemID, FUnitID, FDCStockID, FDCSPID, FSEQ;
@@ -1006,12 +1007,19 @@ namespace SHKZ
                 //
                 FNote = pHead.Substring(pHead.IndexOf("|") + 1);//FNote
 
-                obj = SqlOperation(3, "SELECT FInterID,FSupplyID FROM POOrder WHERE FBillNo = '" + FPOOrderBillNo + "'");
+                obj = SqlOperation(3, "SELECT FInterID,FSupplyID,FCurrencyID FROM POOrder WHERE FBillNo = '" + FPOOrderBillNo + "'");
                 if (obj == null || ((DataTable)obj).Rows.Count == 0)
-                    return "no@没有此采购订单数据[" + FPOOrderBillNo + "]";
+                    return "no@x002:没有此采购订单数据[" + FPOOrderBillNo + "]";
 
                 POFInterIDH = int.Parse(((DataTable)obj).Rows[0]["FInterID"].ToString());
                 FSupplyID = int.Parse(((DataTable)obj).Rows[0]["FSupplyID"].ToString());
+                FCurrencyID = int.Parse(((DataTable)obj).Rows[0]["FCurrencyID"].ToString());
+
+                obj = SqlOperation(1, "SELECT DISTINCT FExchangeRate FROM t_ExchangeRateEntry WHERE GETDATE() BETWEEN FBegDate AND FEndDate AND FCyTo = " + FCurrencyID);
+                if (obj == null)
+                    return "no@x003:汇率获取失败。";
+
+                dRate = decimal.Parse(obj.ToString());
 
                 //
                 dtDtl = new DataTable();
@@ -1091,7 +1099,7 @@ namespace SHKZ
 
                     obj = SqlOperation(3, strSQL);
                     if (obj == null || ((DataTable)obj).Rows.Count == 0)
-                        return "no@未找到物料信息[" + FSourceBillNo + "].[" + FItem + "]";
+                        return "no@x004:未找到物料信息[" + FSourceBillNo + "].[" + FItem + "]";
 
                     POFInterID = int.Parse(((DataTable)obj).Rows[0]["FSourceInterId"].ToString());//FInterID
                     POFEntryID = int.Parse(((DataTable)obj).Rows[0]["FSourceEntryID"].ToString());//FEntryID
@@ -1105,12 +1113,12 @@ namespace SHKZ
 
                     if (FSupplyID != int.Parse(((DataTable)obj).Rows[0]["FSupplyID"].ToString()))
                     {
-                        return "no@表头[" + FPOOrderBillNo + "]的供应商与表体[" + FSourceBillNo + "]的供应商不一致。";
+                        return "no@x005:表头[" + FPOOrderBillNo + "]的供应商与表体[" + FSourceBillNo + "]的供应商不一致。";
                     }
 
                     if (FQty > FStockQty)
                     {
-                        return "no@[" + FSourceBillNo + "].[" + FItem + "]物料本次入库数量[" + FQty.ToString() + "]大于采购订单的未入库总数量[" + FStockQty.ToString() + "]。";
+                        return "no@x006:[" + FSourceBillNo + "].[" + FItem + "]物料本次入库数量[" + FQty.ToString() + "]大于采购订单的未入库总数量[" + FStockQty.ToString() + "]。";
                     }
 
                     if (FDCStock == "")
@@ -1119,7 +1127,7 @@ namespace SHKZ
                     {
                         obj = SqlOperation(3, "SELECT FItemID FROM t_Stock WHERE FNumber = '" + FDCStock + "'");
                         if (obj == null || ((DataTable)obj).Rows.Count == 0)
-                            return "no@未找到仓库信息[" + FDCStock + "]";
+                            return "no@x007:未找到仓库信息[" + FDCStock + "]";
                         FDCStockID = int.Parse(((DataTable)obj).Rows[0]["FItemID"].ToString());//FStockID
                     }
 
@@ -1129,13 +1137,13 @@ namespace SHKZ
                     {
                         obj = SqlOperation(3, "SELECT FSPID FROM t_StockPlace WHERE FNumber = '" + FDCSP + "'");
                         if (obj == null || ((DataTable)obj).Rows.Count == 0)
-                            return "no@未找到仓位信息[" + FDCSP + "]";
+                            return "no@x008:未找到仓位信息[" + FDCSP + "]";
                         FDCSPID = int.Parse(((DataTable)obj).Rows[0]["FSPID"].ToString());//FDCSPID
                     }
 
                     if (FBatchNo.Equals(string.Empty) && FBatchManager)
                     {
-                        return "no@[" + FItem + "]物料已经启用批次号管理，请携带批次号。";
+                        return "no@x009:[" + FItem + "]物料已经启用批次号管理，请携带批次号。";
                     }
 
                     dr = dtDtl.NewRow();
@@ -1148,8 +1156,8 @@ namespace SHKZ
                     dr["FBatchNo"] = FBatchNo;//批次号
 
                     dr["FQty"] = FQty;//本行入库数量
-                    dr["Fprice"] = FPrice;//单价
-                    dr["FAmount"] = FQty * FPrice;//金额
+                    dr["Fprice"] = FPrice * dRate;//单价
+                    dr["FAmount"] = FQty * FPrice * dRate;//金额
                     dr["FSourceBillNo"] = FSourceBillNo;//采购订单
                     dr["FSourceInterId"] = POFInterID;//采购订单内码
 
@@ -1165,7 +1173,7 @@ namespace SHKZ
             }
             catch (Exception ex)
             {
-                return "no@x002:" + ex.Message;
+                return "no@x010:" + ex.Message;
             }
             #endregion
 
@@ -1195,7 +1203,7 @@ namespace SHKZ
             {
                 if (decimal.Parse(dtCheck.Rows[i]["FQty"].ToString()) > decimal.Parse(dtCheck.Rows[i]["FStockQty"].ToString()))//入库总数量大于未入库总数量
                 {
-                    return "no@[" + dtCheck.Rows[i]["FSourceBillNo"].ToString() + "].[" + dtCheck.Rows[i]["FItem"].ToString() + "]物料本次总入库数量[" + dtCheck.Rows[i]["FQty"].ToString() + "]大于未入库总数量[" + dtCheck.Rows[i]["FStockQty"].ToString() + "]。";
+                    return "no@x011:[" + dtCheck.Rows[i]["FSourceBillNo"].ToString() + "].[" + dtCheck.Rows[i]["FItem"].ToString() + "]物料本次总入库数量[" + dtCheck.Rows[i]["FQty"].ToString() + "]大于未入库总数量[" + dtCheck.Rows[i]["FStockQty"].ToString() + "]。";
                 }
             }
             #endregion
@@ -1221,6 +1229,8 @@ namespace SHKZ
                 cmdH.Parameters.Add("@FOrgBillInterID", SqlDbType.Int);
                 cmdH.Parameters.Add("@FPOOrderBillNo", SqlDbType.NVarChar);
 
+                cmdH.Parameters.Add("@FCurrencyID", SqlDbType.Int);
+
                 cmdH.Parameters["@FInterID"].Value = FInterID;
                 cmdH.Parameters["@FBillNo"].Value = FBillNo;
                 cmdH.Parameters["@FNote"].Value = FNote;
@@ -1233,15 +1243,17 @@ namespace SHKZ
                 cmdH.Parameters["@FOrgBillInterID"].Value = POFInterIDH;
                 cmdH.Parameters["@FPOOrderBillNo"].Value = FPOOrderBillNo;
 
-                strSQL = @"INSERT INTO dbo.ICStockBill(FInterID,FBillNo,FBrNo,FTranType,FROB,FNote,FDate,FDeptID,FSupplyID,FPurposeID,   FSManagerID,FFManagerID,FBillerID,FCheckerID,FCheckDate,FStatus,FSelTranType,FPOMode,FPOStyle,FOrgBillInterID,FPOOrdBillNo) 
-                VALUES (@FInterID,@FBillNo,'0',1,1,@FNote,CONVERT(VARCHAR(10),GETDATE(),120),@FDeptID,@FSupplyID,0,  @FSManagerID,@FFManagerID,@FBillerID,@FBillerID,GETDATE(),1,71,36680,252,0,@FPOOrderBillNo)";
+                cmdH.Parameters["@FCurrencyID"].Value = FCurrencyID;
+
+                strSQL = @"INSERT INTO dbo.ICStockBill(FInterID,FBillNo,FBrNo,FTranType,FROB,FNote,FDate,FDeptID,FSupplyID,FPurposeID,   FSManagerID,FFManagerID,FBillerID,FCheckerID,FCheckDate,FStatus,FSelTranType,FPOMode,FPOStyle,FOrgBillInterID,FPOOrdBillNo,FCurrencyID) 
+                VALUES (@FInterID,@FBillNo,'0',1,1,@FNote,CONVERT(VARCHAR(10),GETDATE(),120),@FDeptID,@FSupplyID,0,  @FSManagerID,@FFManagerID,@FBillerID,@FBillerID,GETDATE(),1,71,36680,252,0,@FPOOrderBillNo,@FCurrencyID)";
 
                 cmdH.CommandText = strSQL;
                 cmdH.ExecuteNonQuery();
             }
             catch (Exception ex)
             {
-                return "no@x003:" + ex.Message;
+                return "no@x012:" + ex.Message;
             }
             finally
             {
@@ -1411,7 +1423,7 @@ namespace SHKZ
                     SqlOperation(0, "DELETE FROM ICStockBill WHERE FInterID = " + FInterID.ToString() + " DELETE FROM ICstockbillentry WHERE FInterID = " + FInterID.ToString());
 
                     conn.Close();
-                    return "no@x004:" + ex.Message;
+                    return "no@x013:" + ex.Message;
                 }
             }
             #endregion
